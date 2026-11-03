@@ -1,105 +1,75 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TP1 - Budget par image</title>
-<style>
-  body { font-family: system-ui, sans-serif; margin: 16px; font-size: 18px; }
-  .big { font-size: 40px; font-weight: bold; }
-  .ok { color: #0a7d2c; }
-  .ko { color: #c0392b; }
-  input[type=range] { width: 100%; }
-</style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>TP1 - Réalité augmentée avec model-viewer</title>
+
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@4.0.0/dist/modelviewer.min.js"></script>
+
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            margin: 0;
+        }
+
+        h1 {
+            font-size: 20px;
+            margin: 10px 16px;
+        }
+
+        model-viewer {
+            width: 100%;
+            height: 70vh;
+            background: #f0f0f0;
+        }
+
+        #bouton-ar {
+            background: #0a58ca;
+            color: #fff;
+            border: 0;
+            border-radius: 8px;
+            padding: 14px 20px;
+            font-size: 18px;
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+        }
+    </style>
 </head>
+
 <body>
-<h1>Budget de temps par image</h1>
-<p class="big" id="fps">-- images/s</p>
-<p>
-  Temps moyen par image : <b id="moy">--</b> ms<br>
-  Pire image (sur 60) : <b id="pire">--</b> ms<br>
-  Cadence nominale estimée de l'écran : <b id="nominal">--</b> Hz<br>
-  Budget nominal par image : <b id="budget">--</b> ms
-</p>
-<p id="verdict"></p>
-<h3>Charge artificielle : <span id="valCharge">0</span> ms par image</h3>
-<input type="range" id="charge" min="0" max="40" step="1" value="0" disabled>
-<p id="info">Calibration en cours... ne touchez pas l'écran (environ 5 secondes).</p>
 
-<script>
-const frames = [];     // 60 dernières images (avec la charge actuelle)
-const refFrames = [];  // images mesurées SANS charge (pour la cadence nominale)
-let derniere = performance.now();
-let charge = 0;
-let nominal = null;
+    <h1>Modèle 3D : touchez "Voir dans votre espace"</h1>
 
-const slider = document.getElementById('charge');
-slider.oninput = e => {
-  charge = +e.target.value;
-  document.getElementById('valCharge').textContent = charge;
-};
+    <!--
+        ar-modes : Android Chrome -> webxr ou scene-viewer ; iPhone -> quick-look
+        ar-scale="auto" : on peut agrandir/réduire avec 2 doigts (taille FAUSSE possible)
+        Essayez ensuite ar-scale="fixed" pour garder la taille réelle.
+    -->
 
-function mediane(tab) {
-  const s = [...tab].sort((a, b) => a - b);
-  return s[Math.floor(s.length / 2)];
-}
+    <model-viewer
+        src="https://modelviewer.dev/shared-assets/models/Astronaut.glb"
+        alt="Un astronaute en 3D"
+        ar
+        ar-modes="webxr scene-viewer quick-look"
+        ar-scale="auto"
+        ar-placement="floor"
+        camera-controls
+        touch-action="pan-y"
+        shadow-intensity="1">
 
-function boucle(t) {
-  const dt = t - derniere;
-  derniere = t;
+        <button slot="ar-button" id="bouton-ar">
+            Voir dans votre espace
+        </button>
 
-  // On ignore le démarrage et les pauses (onglet en arrière-plan)
-  if (t > 1500 && dt > 0 && dt < 500) {
-    frames.push(dt);
-    if (frames.length > 60) frames.shift();
-    if (charge === 0) {
-      refFrames.push(dt);
-      if (refFrames.length > 120) refFrames.shift();
-    }
-  }
+    </model-viewer>
 
-  // Simule un calcul lourd : on occupe le processeur pendant `charge` ms
-  const debut = performance.now();
-  while (performance.now() - debut < charge) { /* attente active */ }
+    <p style="margin:12px 16px">
+        Si le bouton n'apparaît pas : votre téléphone ou navigateur ne gère pas l'AR avec cette méthode (voir "Si ça ne marche pas").
+    </p>
 
-  requestAnimationFrame(boucle);
-}
-requestAnimationFrame(boucle);
-
-setInterval(() => {
-  // Cadence nominale : médiane des images mesurées sans charge
-  if (charge === 0 && refFrames.length >= 40) {
-    const fpsRef = 1000 / mediane(refFrames);
-    const standards = [30, 60, 72, 90, 120];
-    nominal = standards.reduce((p, c) =>
-      Math.abs(c - fpsRef) < Math.abs(p - fpsRef) ? c : p);
-    if (slider.disabled) {
-      slider.disabled = false;
-      document.getElementById('info').textContent = '';
-    }
-  }
-  if (nominal === null || frames.length < 10) return;
-
-  const moy = frames.reduce((a, b) => a + b, 0) / frames.length;
-  const pire = Math.max(...frames);
-  const fps = 1000 / moy;
-  const budget = 1000 / nominal;
-
-  document.getElementById('fps').textContent = fps.toFixed(0) + ' images/s';
-  document.getElementById('moy').textContent = moy.toFixed(1);
-  document.getElementById('pire').textContent = pire.toFixed(1);
-  document.getElementById('nominal').textContent = nominal;
-  document.getElementById('budget').textContent = budget.toFixed(1);
-
-  const v = document.getElementById('verdict');
-  if (moy > budget * 1.15 || pire > budget * 1.5) {
-    v.textContent = 'Budget dépassé : saccades visibles.';
-    v.className = 'ko';
-  } else {
-    v.textContent = 'Budget respecté.';
-    v.className = 'ok';
-  }
-}, 500);
-</script>
 </body>
 </html>
