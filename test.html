@@ -1,1 +1,86 @@
-<!DOCTYPE html> <html lang="fr"> <head> <meta charset="utf-8"> <meta name="viewport" content="width=device-width, initial-scale=1"> <title>Test de la mise en route</title> <style> body { font-family: system-ui, sans-serif; margin: 16px; font-size: 19px; } .ok { color: #0a7d2c; } .ko { color: #c0392b; } </style> </head> <body> <h1>Bonjour XR !</h1> <p>Si vous lisez ce texte sur votre téléphone, la publication fonctionne.</p> <ul id="liste"></ul> <script> function ligne(nom, ok, aide) { const li = document.createElement('li'); li.className = ok ? 'ok' : 'ko'; li.textContent = nom + ' : ' + (ok ? 'OUI' : 'NON') + (ok || !aide ? '' : ' (' + aide + ')'); document.getElementById('liste').appendChild(li); } ligne('Connexion sécurisée (HTTPS)', window.isSecureContext, 'obligatoire pour la caméra et les capteurs'); ligne('Caméra accessible', !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia), 'HTTPS requis'); ligne('Capteurs de mouvement', 'DeviceOrientationEvent' in window, 'navigateur trop ancien'); ligne('Vibration', !!navigator.vibrate, 'normal sur iPhone : pas de vibration web'); ligne('Reconnaissance vocale', !!(window.SpeechRecognition || window.webkitSpeechRecognition), 'Chrome (Android) conseillé'); ligne('WebGL (3D)', !!document.createElement('canvas').getContext('webgl'), 'mettez à jour le navigateur'); const p = document.createElement('p'); p.textContent = navigator.userAgent; p.style.fontSize = '13px'; document.body.appendChild(p); </script> </body> </html> 
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Test de la mise en route</title>
+  <style>
+    :root { color-scheme: light dark; --ok: #0a7d2c; --ko: #c0392b; }
+    @media (prefers-color-scheme: dark) {
+      :root { --ok: #4cd37b; --ko: #ff7b6b; }
+    }
+    body { font-family: system-ui, sans-serif; margin: 16px; font-size: 19px; }
+    .ok { color: var(--ok); }
+    .ko { color: var(--ko); }
+    button { font-size: 17px; padding: 8px 14px; margin: 8px 0; }
+    #ua { font-size: 13px; word-break: break-word; }
+  </style>
+</head>
+<body>
+  <h1>Bonjour XR !</h1>
+  <p>Si vous lisez ce texte sur votre téléphone, la publication fonctionne.</p>
+  <ul id="liste"></ul>
+  <button id="btnCapteurs" hidden>Autoriser les capteurs de mouvement</button>
+  <p id="ua"></p>
+
+  <script>
+    const liste = document.getElementById('liste');
+
+    function ligne(nom, ok, aide) {
+      const li = document.createElement('li');
+      li.className = ok ? 'ok' : 'ko';
+      li.textContent = nom + ' : ' + (ok ? 'OUI' : 'NON') +
+        (ok || !aide ? '' : ' (' + aide + ')');
+      liste.appendChild(li);
+      return li;
+    }
+
+    function webglDisponible() {
+      try {
+        const c = document.createElement('canvas');
+        return !!(c.getContext('webgl2') || c.getContext('webgl') ||
+                  c.getContext('experimental-webgl'));
+      } catch (e) {
+        return false;
+      }
+    }
+
+    ligne('Connexion sécurisée (HTTPS)', window.isSecureContext,
+          'obligatoire pour la caméra et les capteurs');
+    ligne('Caméra accessible',
+          !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+          'HTTPS requis');
+
+    // Capteurs de mouvement (iOS demande une autorisation après un clic)
+    const capteursDispo = 'DeviceOrientationEvent' in window;
+    const liCapteurs = ligne('Capteurs de mouvement', capteursDispo,
+                             'navigateur trop ancien');
+    const btn = document.getElementById('btnCapteurs');
+    if (capteursDispo &&
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+      btn.hidden = false;
+      btn.addEventListener('click', async () => {
+        try {
+          const r = await DeviceOrientationEvent.requestPermission();
+          liCapteurs.className = r === 'granted' ? 'ok' : 'ko';
+          liCapteurs.textContent = 'Capteurs de mouvement : ' +
+            (r === 'granted' ? 'OUI (autorisés)' : 'NON (refusés)');
+          if (r === 'granted') btn.hidden = true;
+        } catch (e) {
+          liCapteurs.className = 'ko';
+          liCapteurs.textContent = 'Capteurs de mouvement : NON (' + e.message + ')';
+        }
+      });
+    }
+
+    ligne('Vibration', !!navigator.vibrate,
+          'normal sur iPhone : pas de vibration web');
+    ligne('Reconnaissance vocale',
+          !!(window.SpeechRecognition || window.webkitSpeechRecognition),
+          'Chrome (Android) conseillé');
+    ligne('WebGL (3D)', webglDisponible(), 'mettez à jour le navigateur');
+
+    document.getElementById('ua').textContent = navigator.userAgent;
+  </script>
+</body>
+</html>
